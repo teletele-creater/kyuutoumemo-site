@@ -7,6 +7,14 @@
 <meta name="description" content="急騰した銘柄の「なぜ上がったか」を初動で記録するメモサイト。" />
 <meta name="theme-color" content="#1D2026" />
 <link rel="icon" type="image/png" href="favicon.png" />
+<!-- Google アナリティクス。ページ切替ごとの page_view は app.jsx から送る（初回の自動送信は止める） -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-KD712C5G64"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-KD712C5G64', { send_page_view: false });
+</script>
 <!-- Google AdSense（サイト所有確認・広告配信） -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6118869429340323"
      crossorigin="anonymous"></script>
@@ -436,20 +444,20 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
   <script>window.PUBLIC_BUILD = true;</script>
-  <script src="site-config.js?v=20261104e"></script>
-  <script src="ads-config.js?v=20261104e"></script>
-  <script type="text/babel" src="ios-frame.jsx?v=20261104e"></script>
-  <script type="text/babel" src="tweaks-panel.jsx?v=20261104e"></script>
-  <script type="text/babel" src="data.jsx?v=20261104e"></script>
-  <script type="text/babel" src="live-data.jsx?v=20261104e"></script>
-  <script type="text/babel" src="watchlist.jsx?v=20261104e"></script>
-  <script type="text/babel" src="dip-signal.jsx?v=20261104e"></script>
-  <script type="text/babel" src="ui.jsx?v=20261104e"></script>
-  <script type="text/babel" src="real-chart.jsx?v=20261104e"></script>
-  <script type="text/babel" src="ads.jsx?v=20261104e"></script>
-  <script type="text/babel" src="auth.jsx?v=20261104e"></script>
-  <script type="text/babel" src="weekly-report.jsx?v=20261104e"></script>
-  <script type="text/babel" src="pages.jsx?v=20261104e"></script>
-  <script type="text/babel" src="app.jsx?v=20261104e"></script>
+  <script src="site-config.js?v=20261104f"></script>
+  <script src="ads-config.js?v=20261104f"></script>
+  <script type="text/babel" src="ios-frame.jsx?v=20261104f"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=20261104f"></script>
+  <script type="text/babel" src="data.jsx?v=20261104f"></script>
+  <script type="text/babel" src="live-data.jsx?v=20261104f"></script>
+  <script type="text/babel" src="watchlist.jsx?v=20261104f"></script>
+  <script type="text/babel" src="dip-signal.jsx?v=20261104f"></script>
+  <script type="text/babel" src="ui.jsx?v=20261104f"></script>
+  <script type="text/babel" src="real-chart.jsx?v=20261104f"></script>
+  <script type="text/babel" src="ads.jsx?v=20261104f"></script>
+  <script type="text/babel" src="auth.jsx?v=20261104f"></script>
+  <script type="text/babel" src="weekly-report.jsx?v=20261104f"></script>
+  <script type="text/babel" src="pages.jsx?v=20261104f"></script>
+  <script type="text/babel" src="app.jsx?v=20261104f"></script>
 </body>
 </html>

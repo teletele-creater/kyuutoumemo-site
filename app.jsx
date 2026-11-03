@@ -159,6 +159,39 @@ function App() {
     : ["plan"].includes(page) ? "plan"
     : null;
 
+  // ページ切替ごとにタイトルを更新し、Google アナリティクスへ page_view を送る。
+  // URL はハッシュ（#stock/6262）なので、GA には /stock/6262 のような仮想パスで渡す
+  useEffect(() => {
+    const SITE = "株価急騰要因メモ";
+    const d = pageData || {};
+    const name = d.name && window._dispName ? window._dispName(d.name) : d.name;
+    const info = {
+      home:     { path: "/",                                   title: SITE },
+      surges:   { path: "/surges",                             title: "今日の急騰銘柄" },
+      stock:    { path: "/stock/" + (d.code || ""),            title: `${name || "銘柄詳細"}（${d.code || ""}）の急騰理由` },
+      cats:     { path: "/cats",                               title: "急騰理由カテゴリ" },
+      category: { path: "/category/" + (d.key || ""),          title: `${d.label || "カテゴリ"}で急騰した銘柄` },
+      theme:    { path: "/theme/" + encodeURIComponent(typeof pageData === "string" ? pageData : ""), title: `テーマ「${typeof pageData === "string" ? pageData : ""}」で動いた銘柄` },
+      archive:  { path: "/archive",                            title: "急騰履歴アーカイブ" },
+      watch:    { path: "/watch",                              title: "ウォッチリスト" },
+      report:   { path: "/report",                             title: "週次レポート" },
+      plan:     { path: "/plan",                               title: "会員プラン" },
+      article:  { path: "/article/" + (d.code || ""),          title: `${d.name || "無料記事"}　${d.reason || ""}` },
+      legal:    { path: "/legal",                              title: "特定商取引法に基づく表記" },
+      privacy:  { path: "/privacy",                            title: "プライバシーポリシー" },
+      scouter:  { path: "/scouter",                            title: "銘柄スカウター" },
+    }[page] || { path: "/", title: SITE };
+    const title = page === "home" ? SITE : `${info.title} | ${SITE}`;
+    document.title = title;
+    if (typeof window.gtag === "function") {
+      window.gtag("event", "page_view", {
+        page_title: title,
+        page_location: window.location.origin + info.path,
+        page_path: info.path,
+      });
+    }
+  }, [page, pageData]);
+
   let body = null;
   switch (page) {
     case "home":     body = <HomePage navigate={navigate}/>; break;

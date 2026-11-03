@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>株価急騰要因メモ</title>
+<meta name="description" content="急騰した銘柄の「なぜ上がったか」を初動で記録するメモサイト。" />
+<meta name="theme-color" content="#1D2026" />
+<link rel="icon" type="image/png" href="favicon.png" />
+<!-- Google AdSense（サイト所有確認・広告配信） -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6118869429340323"
+     crossorigin="anonymous"></script>
+<meta property="og:type" content="website" />
+<meta property="og:title" content="株価急騰要因メモ" />
+<meta property="og:description" content="急騰した銘柄の「なぜ上がったか」を初動で記録するメモサイト。" />
+<meta property="og:url" content="https://kyuutoumemo.com/" />
+<meta property="og:image" content="https://kyuutoumemo.com/og-image.png?v=2" />
+<meta property="og:site_name" content="株価急騰要因メモ" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="株価急騰要因メモ" />
+<meta name="twitter:description" content="急騰した銘柄の「なぜ上がったか」を初動で記録するメモサイト。" />
+<meta name="twitter:image" content="https://kyuutoumemo.com/og-image.png?v=2" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
+<style>
+  /* ===== 誌面トークン =====
+     紙・鼠・墨・灰 の4色で組み、黄色いマーカーだけをアクセントにする。
+     朱/緑は騰落の意味にだけ使う（装飾には使わない）。
+     --navy / --gold は旧デザインの変数名。各ページのインライン指定が参照しているので名前は残し、値だけ差し替える。 */
+  :root {
+    --bg: #FAFAF8;
+    --surface: #FFFFFF;
+    --surface-sub: #F1F2EF;
+    --ink: #1D2026;
+    --ink-soft: #3A3F48;
+    --muted: #6B707A;
+    --muted-2: #9A9FA8;
+    --hairline: #E4E6E3;
+    --hairline-strong: #C9CCC8;
+    --navy: #1D2026;
+    --navy-deep: #1D2026;
+    --marker: #FFE14D;
+    --marker-soft: #FFF6C7;
+    --up: #D7332A;
+    --up-soft: #FBEAE8;
+    --down: #1E7A55;
+    --down-soft: #E6F2EC;
+    --gold: #8F6F00;
+    --gold-soft: #FFF6C7;
+
+    --f-body: "BIZ UDPGothic", "Hiragino Sans", system-ui, sans-serif;
+    --f-head: "Zen Kaku Gothic New", "BIZ UDPGothic", sans-serif;
+    --f-num: "Archivo", "BIZ UDPGothic", sans-serif;
+  }
+  html, body { background: var(--bg); }
+  /* ダークcolor-scheme下でUA既定の buttontext が白になり、
+     色未指定のボタン内テキスト（カテゴリ名など）が白背景で見えなくなるのを防ぐ */
+  button { color: inherit; font-family: inherit; }
+  body {
+    margin: 0;
+    font-family: var(--f-body);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  * { box-sizing: border-box; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 5px var(--marker); }
+
+  /* App-level type scale (applies inside iPhone) */
+  .app {
+    position: relative;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 14px;
+    line-height: 1.6;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-top: 54px;    /* iOS status bar + dynamic island */
+    padding-bottom: 28px; /* iOS home indicator */
+  }
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ===== 題字（マストヘッド） ===== */
+  .mast { background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  .mast-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .mast-title {
+    font-family: var(--f-head); font-weight: 900;
+    font-size: 19px; letter-spacing: 0.01em; line-height: 1.1;
+    font-feature-settings: "palt";
+    color: var(--ink); white-space: nowrap;
+  }
+  .mast-issue {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .mast-issue b { color: var(--ink); font-weight: 700; }
+  .mast-rule { height: 3px; background: var(--ink); }
+
+  /* ===== Desktop (PC) shell：上に題字と横並びメニュー ===== */
+  .dk-root {
+    display: flex; flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .dk-mast { padding: 22px 40px 0; background: var(--bg); flex-shrink: 0; }
+  .dk-mast-inner { max-width: 1240px; margin: 0 auto; }
+  .dk-mast-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-bottom: 14px; }
+  .dk-logo {
+    font-family: var(--f-head); font-weight: 900;
+    font-size: 34px; line-height: 1; letter-spacing: 0;
+    font-feature-settings: "palt"; color: var(--ink);
+  }
+  .dk-sub { display: block; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+  .dk-nav { display: flex; align-items: stretch; gap: 2px; border-top: 3px solid var(--ink); }
+  .dk-navbtn {
+    position: relative; isolation: isolate;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--ink-soft);
+    padding: 11px 16px 12px;
+    font-size: 14px; font-family: var(--f-head); font-weight: 700;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .dk-navbtn:hover { color: var(--ink); background: var(--surface-sub); }
+  .dk-navbtn.active { color: var(--ink); }
+  .dk-navbtn.active::after {
+    content: ""; position: absolute; left: 10px; right: 10px; bottom: 7px; height: 9px;
+    background: var(--marker); z-index: -1;
+  }
+  .dk-navbtn > span { position: relative; z-index: 1; }
+  .dk-nav-search { margin-left: auto; }
+  .dk-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .dk-content { flex: 1; overflow-y: auto; }
+  .dk-col {
+    /* 各ページのインライン指定はスマホ基準の px なので、PCでは少し拡大して座らせる */
+    max-width: min(760px, 100%);
+    zoom: 1.1;
+    margin: 0 auto;
+    min-height: 100%;
+    background: var(--bg);
+  }
+  .dk-col.dk-col--wide { max-width: min(1130px, 100%); zoom: 1.06; }
+  .dk-col .scroll { overflow: visible; }
+  .dk-foot {
+    max-width: 1240px; margin: 0 auto; padding: 0 40px;
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* カテゴリ一覧：PCでは2列グリッド */
+  .dk-root .cats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    padding: 14px 20px 0 !important;
+  }
+  .dk-root .cats-grid > button { margin-bottom: 0 !important; }
+
+  /* ===== ホームの誌面グリッド ===== */
+  .hm-cell { min-width: 0; }
+  @media (min-width: 1000px) {
+    .dk-root .hm-spread {
+      display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 0 36px; padding: 0 20px; align-items: start;
+    }
+    .dk-root .hm-spread.hm-spread--even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .dk-root .hm-spread.hm-spread--rev { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+    .dk-root .hm-spread > .hm-cell > .sec-head { padding-left: 0; padding-right: 0; }
+  }
+
+  @media (min-width: 1000px) {
+    .dk-root .fp-head { margin: 0 20px; padding: 30px 0 18px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 36px; align-items: end; }
+    .dk-root .fp-title { font-size: 54px; }
+    .dk-root .fp-count .num-cond { font-size: 44px; }
+    .dk-root .fp-lede { margin: 0 0 6px; }
+    .dk-root .fp-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); padding: 0 20px; }
+    .dk-root .fp-col-lead .fp-story { padding: 26px 34px 30px 0; border-bottom: none; }
+    .dk-root .fp-col-mid { border-left: 1px solid var(--hairline); }
+    .dk-root .fp-col-mid .fp-story { padding: 26px 0 24px 28px; }
+    .dk-root .fp-col-mid .fp-story:last-child { border-bottom: none; }
+    .dk-root .fp-lead .fp-pct { font-size: 136px !important; }
+    .dk-root .fp-lead .fp-name { font-size: 42px !important; }
+    .dk-root .fp-lead .fp-reason { font-size: 21px !important; }
+    .dk-root .fp-smalls { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 20px; border-top: 1px solid var(--ink); }
+    .dk-root .fp-smalls .fp-story { padding: 18px 20px 20px; border-bottom: none; border-left: 1px solid var(--hairline); }
+    .dk-root .fp-smalls .fp-story:first-child { border-left: none; padding-left: 0; }
+    .dk-root .fp-smalls .fp-story:last-child { padding-right: 0; }
+    .dk-root .fp-actions { padding: 20px 20px 0; }
+    .dk-root .fp-actions .btn { flex: 0 0 auto; min-width: 240px; }
+    .dk-root .hm-articles { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; padding: 0 2px; }
+    .dk-root .plan-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ===== 一面：その日の急騰を大中小で組む ===== */
+  .fp-head { padding: 22px 18px 16px; border-bottom: 3px solid var(--ink); }
+  .fp-title {
+    margin: 0; font-family: var(--f-head); font-weight: 900;
+    font-size: 34px; line-height: 1.15; font-feature-settings: "palt";
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px;
+  }
+  .fp-count { font-size: 15px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+  .fp-count .num-cond { font-size: 32px; font-weight: 800; color: var(--ink); margin-right: 3px; }
+  .fp-lede { margin: 10px 0 0; font-size: 13px; line-height: 1.75; color: var(--ink-soft); max-width: 42em; }
+  .fp-story { padding: 18px; border-bottom: 1px solid var(--hairline); cursor: pointer; }
+  .fp-story:hover .fp-name { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+  .fp-lead { padding-top: 20px; padding-bottom: 24px; }
+  .fp-small .fp-reason { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .fp-smalls { display: grid; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 560px) and (max-width: 999px) {
+    .fp-smalls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .fp-smalls .fp-story:nth-child(even) { border-left: 1px solid var(--hairline); }
+  }
+  /* スマホ：一面を詰める。トップ記事は小さめに、残りは「前日比｜銘柄名・理由｜値動き」の1行型に */
+  @media (max-width: 999px) {
+    .fp-head { padding: 16px 18px 12px; }
+    .fp-title { font-size: 28px; }
+    .fp-count .num-cond { font-size: 26px; }
+    .fp-lede { font-size: 12.5px; margin-top: 6px; }
+    .fp-lead { padding-top: 14px; padding-bottom: 16px; }
+    .fp-lead .fp-pct { font-size: 64px !important; }
+    .fp-lead .fp-name { font-size: 24px !important; margin-top: 6px !important; }
+    .fp-lead .fp-reason { font-size: 16px !important; margin-top: 6px !important; }
+    .fp-lead .fp-chart { margin-top: 12px !important; }
+    .fp-lead .fp-chart svg { height: 84px !important; }
+    .fp-lead .fp-cap, .fp-lead .fp-themes { display: none !important; }
+    .fp-lead .fp-stats { margin-top: 10px !important; font-size: 12px !important; }
+
+    .fp-mid, .fp-small {
+      display: grid; grid-template-columns: 76px minmax(0, 1fr) 64px;
+      grid-template-areas: "pct meta meta" "pct name chart" "pct reason chart";
+      column-gap: 12px; align-items: start; padding: 12px 18px;
+    }
+    .fp-mid .fp-meta, .fp-small .fp-meta { grid-area: meta; font-size: 11px !important; }
+    .fp-mid .fp-pctrow, .fp-small .fp-pctrow { grid-area: pct; flex-direction: column; gap: 2px !important; margin-top: 0 !important; padding-top: 2px; }
+    .fp-mid .fp-pct, .fp-small .fp-pct { font-size: 27px !important; }
+    .fp-mid .fp-pctlabel, .fp-small .fp-pctlabel { font-size: 10.5px !important; }
+    .fp-mid .fp-name, .fp-small .fp-name { grid-area: name; font-size: 15.5px !important; margin-top: 1px !important; }
+    .fp-mid .fp-reason, .fp-small .fp-reason {
+      grid-area: reason; font-size: 12.5px !important; margin-top: 2px !important; line-height: 1.55 !important;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .fp-mid .fp-chart, .fp-small .fp-chart { grid-area: chart; margin-top: 4px !important; align-self: center; }
+    .fp-mid .fp-chart svg, .fp-small .fp-chart svg { height: 30px !important; }
+    .fp-mid .fp-stats { display: none !important; }
+    /* 一面に並べるのは トップ＋4銘柄まで。残りは一覧ボタンから */
+    .fp-smalls .fp-story:nth-child(n+3) { display: none; }
+  }
+  .fp-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 18px 0; }
+  .fp-actions .btn { flex: 1 1 220px; }
+
+  /* カテゴリ一覧の1件 */
+  .cat-row {
+    display: flex; flex-direction: column; justify-content: flex-start;
+    width: 100%; text-align: left; cursor: pointer;
+    background: transparent; border: none; border-bottom: 1px solid var(--hairline);
+    padding: 16px 0 18px; color: var(--ink);
+  }
+  .cat-row:hover > span:first-child > span:first-child { background: var(--marker); }
+
+  /* 索引：項目名 ……… 件数 */
+  .idx-row {
+    display: flex; align-items: baseline; gap: 8px; width: 100%;
+    background: transparent; border: none; padding: 9px 0; cursor: pointer;
+    font-size: 13.5px; color: var(--ink); text-align: left;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .idx-row:hover > span:first-child { background: var(--marker); }
+  .idx-leader { flex: 1; border-bottom: 1px dotted var(--hairline-strong); transform: translateY(-4px); min-width: 12px; }
+
+  /* 数字（騰落率・株価・時刻）：Archivo の等幅数字 */
+  .mono { font-family: var(--f-num); font-variant-numeric: tabular-nums; letter-spacing: 0 !important; }
+  .num-cond { font-family: var(--f-num); font-stretch: 68%; font-variant-numeric: tabular-nums; }
+  /* 見出し書体（旧 .mincho の役割を引き継ぐ） */
+  .mincho { font-family: var(--f-head); font-feature-settings: "palt"; }
+
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+
+  .hl-t { border-top: 1px solid var(--hairline); }
+  .hl-b { border-bottom: 1px solid var(--hairline); }
+
+  /* ===== マーカー =====
+     急騰理由に引く蛍光ペンの線。表紙だけ、開いたときに一度だけ左から引く */
+  .marker {
+    background-image: linear-gradient(transparent 56%, var(--marker) 56%, var(--marker) 94%, transparent 94%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  @keyframes marker-draw { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .marker-draw { animation: marker-draw .9s cubic-bezier(.6,.05,.3,1) .35s both; }
+  }
+
+  /* ===== 見出し ===== */
+  .sec-head { padding: 34px 18px 12px; }
+  .sec-head-rule { height: 2px; background: var(--ink); margin-bottom: 12px; }
+  .sec-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .sec-title {
+    margin: 0; font-family: var(--f-head); font-weight: 900;
+    font-size: 22px; line-height: 1.3; letter-spacing: 0.01em;
+    font-feature-settings: "palt"; color: var(--ink);
+  }
+  .sec-note { margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+  .sec-more {
+    background: transparent; border: none; padding: 2px 0; cursor: pointer;
+    font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap;
+    text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px;
+  }
+  .sec-more:hover { text-decoration-color: var(--marker); text-decoration-thickness: 4px; }
+
+  /* Live ticker */
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .ticker-track {
+    display: flex;
+    width: max-content;      /* 画面幅で縮められないようにする（スマホで潰れる対策） */
+    white-space: nowrap;
+    animation: ticker 90s linear infinite;
+    will-change: transform;  /* iOS Safari でのカクつき/描画抜け対策 */
+    backface-visibility: hidden;
+  }
+  .ticker-track > * { flex: 0 0 auto; }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; }
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--up);
+    display: inline-block;
+    animation: pulse-dot 1.6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+  /* Realtime で届いた新着：マーカー色で一度だけ光らせる */
+  @keyframes new-flash {
+    0%   { background: var(--marker-soft); box-shadow: inset 4px 0 0 var(--marker); }
+    100% { background: var(--surface); box-shadow: inset 0 0 0 transparent; }
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .new-card { animation: slide-in .4s ease-out, new-flash 5s ease-out forwards; }
+
+  /* ページ切替は動かさない（表紙のマーカー以外の自動モーションは持たない） */
+  .page-enter { }
+
+  .spark-path { fill: none; stroke-width: 1.4; }
+
+  .tappable { transition: background-color .15s ease; }
+  .tappable:active { background-color: var(--surface-sub); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: var(--f-head);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 13px 16px;
+    border-radius: 0;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: background-color .15s ease, color .15s ease;
+    user-select: none;
+  }
+  .btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .btn-primary:hover { background: #000; }
+  .btn-secondary { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn-secondary:hover { background: var(--marker); }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn-gold { background: var(--marker); color: var(--ink); border-color: var(--marker); }
+  .btn-gold:hover { background: #FFD60A; }
+
+  /* 小見出しラベル（旧 eyebrow）。大文字化・字間の飾りはしない */
+  .eyebrow {
+    font-size: 11.5px;
+    letter-spacing: 0.02em !important;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  body[data-tweaks] .ios-frame-wrapper { transition: transform .25s ease; }
+</style>
+</head>
+<body>
+  <template id="__bundler_thumbnail" data-bg-color="#FAFAF8">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#1c1c1a"/>
+      <g transform="translate(360,140)">
+        <rect x="0" y="0" width="480" height="520" rx="56" fill="#F6F4EE" stroke="#0B1220" stroke-width="6"/>
+        <rect x="40" y="60" width="400" height="22" fill="#14223D"/>
+        <text x="240" y="170" text-anchor="middle" font-family="serif" font-size="56" font-weight="700" fill="#0B1220">初動</text>
+        <text x="240" y="225" text-anchor="middle" font-family="serif" font-size="56" font-weight="700" fill="#14223D">さん</text>
+        <g transform="translate(60,290)" stroke="#C8333A" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="0,140 50,130 100,135 150,110 200,90 250,70 300,40 360,10"/>
+          <circle cx="360" cy="10" r="9" fill="#C8333A" stroke="none"/>
+        </g>
+        <rect x="60" y="450" width="160" height="14" fill="#0B1220"/>
+        <rect x="240" y="450" width="180" height="14" fill="#D2CCBC"/>
+      </g>
+    </svg>
+  </template>
+  <div id="root"></div>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Supabase JS SDK (リアルタイム購読用) -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+
+  <script>window.PUBLIC_BUILD = true;</script>
+  <script src="site-config.js?v=20261104e"></script>
+  <script src="ads-config.js?v=20261104e"></script>
+  <script type="text/babel" src="ios-frame.jsx?v=20261104e"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=20261104e"></script>
+  <script type="text/babel" src="data.jsx?v=20261104e"></script>
+  <script type="text/babel" src="live-data.jsx?v=20261104e"></script>
+  <script type="text/babel" src="watchlist.jsx?v=20261104e"></script>
+  <script type="text/babel" src="dip-signal.jsx?v=20261104e"></script>
+  <script type="text/babel" src="ui.jsx?v=20261104e"></script>
+  <script type="text/babel" src="real-chart.jsx?v=20261104e"></script>
+  <script type="text/babel" src="ads.jsx?v=20261104e"></script>
+  <script type="text/babel" src="auth.jsx?v=20261104e"></script>
+  <script type="text/babel" src="weekly-report.jsx?v=20261104e"></script>
+  <script type="text/babel" src="pages.jsx?v=20261104e"></script>
+  <script type="text/babel" src="app.jsx?v=20261104e"></script>
+</body>
+</html>

@@ -43,21 +43,38 @@ function _jstYmd(iso) {
   } catch (e) { return ""; }
 }
 
+// JST の「11月3日」
+function _jstMd(iso) {
+  try {
+    return new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "long", day: "numeric" }).format(new Date(iso));
+  } catch (e) { return ""; }
+}
+
 // URL から最初に開くページを読む。
-// 新形式：/stock/1234、/stock/1234/20261103、/archive
+// 新形式：/stock/1234、/stock/1234/20261103、/archive、/theme/半導体、/category/upward
 // 旧形式：/#stock/1234、/#legal（Xの過去ポストや外部のリンク用に引き続き受け付ける）
 function _routeFromUrl() {
   const path = window.location.pathname.replace(/\/index\.html$/, "/");
   const hash = (window.location.hash || "").replace(/^#\/?/, "");
   const m = path.match(/^\/stock\/([0-9A-Za-z]+)(?:\/(\d{8}))?\/?$/) || hash.match(/^stock\/([0-9A-Za-z]+)(?:\/(\d{8}))?/);
-  if (m) return { page: "home", stock: { code: m[1], ymd: m[2] || null } };
+  if (m) return { page: "home", data: null, stock: { code: m[1], ymd: m[2] || null } };
+  const lm = path.match(/^\/(theme|category)\/([^/]+)\/?$/);
+  if (lm) {
+    let slug = lm[2];
+    try { slug = decodeURIComponent(slug); } catch (e) {}
+    if (lm[1] === "theme") return { page: "theme", data: slug, stock: null };
+    const cat = (window.CATEGORIES || []).find(c => c.key === slug);
+    if (cat) return { page: "category", data: cat, stock: null };
+  }
   const seg = path.replace(/^\/|\/$/g, "") || hash;
-  return { page: HASH_PAGES.includes(seg) ? seg : "home", stock: null };
+  return { page: HASH_PAGES.includes(seg) ? seg : "home", data: null, stock: null };
 }
 
 // ページに対応するURLを返す。銘柄詳細は /stock/1234（その銘柄の最新の検知）
 function _urlFor(page, data) {
   if (page === "stock" && data && data.code) return "/stock/" + data.code;
+  if (page === "theme" && typeof data === "string" && data) return "/theme/" + encodeURIComponent(data);
+  if (page === "category" && data && data.key) return "/category/" + data.key;
   if (HASH_PAGES.includes(page) && page !== "home") return "/" + page;
   return "/";
 }
@@ -77,7 +94,7 @@ function _focusArchiveSearch() {
 function App() {
   // ページ遷移履歴のスタック。最後の要素が現在のページ。
   const [route0] = useState(_routeFromUrl);
-  const [history, setHistory] = useState(() => [{ page: route0.page, data: null }]);
+  const [history, setHistory] = useState(() => [{ page: route0.page, data: route0.data }]);
   const current = history[history.length - 1];
   const page = current.page;
   const pageData = current.data;
@@ -192,10 +209,10 @@ function App() {
     const info = {
       home:     { path: "/",                                   title: SITE },
       surges:   { path: "/surges",                             title: "今日の急騰銘柄" },
-      stock:    { path: "/stock/" + (d.code || ""),            title: `${name || "銘柄詳細"}（${d.code || ""}）が急騰した理由` },
+      stock:    { path: "/stock/" + (d.code || ""),            title: `${name || "銘柄詳細"}（${d.code || ""}）が急騰した理由${d.detected_at ? `｜${_jstMd(d.detected_at)}の材料` : ""}` },
       cats:     { path: "/cats",                               title: "急騰理由カテゴリ" },
-      category: { path: "/category/" + (d.key || ""),          title: `${d.label || "カテゴリ"}で急騰した銘柄` },
-      theme:    { path: "/theme/" + encodeURIComponent(typeof pageData === "string" ? pageData : ""), title: `テーマ「${typeof pageData === "string" ? pageData : ""}」で動いた銘柄` },
+      category: { path: "/category/" + (d.key || ""),          title: `${d.label || "カテゴリ"}で急騰した銘柄一覧` },
+      theme:    { path: "/theme/" + encodeURIComponent(typeof pageData === "string" ? pageData : ""), title: `「${typeof pageData === "string" ? pageData : ""}」関連で急騰した銘柄一覧` },
       archive:  { path: "/archive",                            title: "急騰履歴アーカイブ" },
       watch:    { path: "/watch",                              title: "ウォッチリスト" },
       report:   { path: "/report",                             title: "週次レポート" },

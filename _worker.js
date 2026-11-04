@@ -5,7 +5,8 @@
 //   - それ以外（人・Google など）→ SPA の index.html に、その銘柄のタイトル・説明・本文を
 //     差し込んで返す（stockSeoPage）。検索エンジンが JS を実行しなくても中身を読めるようにするため
 // /card/{銘柄コード}.png       … Supabase 上のチャートPNGを自ドメイン経由で配信（カード画像）
-// /sitemap.xml                 … 銘柄ページと主要ページの一覧（検索エンジン向け）
+// /theme/{テーマ名}・/category/{キー} … テーマ別・急騰理由カテゴリ別の銘柄一覧。銘柄ページと同じく本文を差し込む
+// /sitemap.xml                 … 銘柄・テーマ・カテゴリのページと主要ページの一覧（検索エンジン向け）
 // /archive・/legal などの画面   … 静的ファイルが無いので index.html を返し、SPA 側で表示を切り替える
 // それ以外のリクエストはすべて静的アセットにそのまま流す。
 //
@@ -49,6 +50,13 @@ export default {
       const ua = request.headers.get("user-agent") || "";
       if (X_CRAWLER_UA.test(ua)) return stockCardPage(page[1], url.origin, ua);
       return stockSeoPage(page[1], page[2] || null, url.origin, env);
+    }
+
+    const list = url.pathname.match(/^\/(theme|category)\/([^/]+)\/?$/);
+    if (list) {
+      let slug = list[2];
+      try { slug = decodeURIComponent(slug); } catch (e) {}
+      return listSeoPage({ kind: list[1], slug: slug.trim(), origin: url.origin, env });
     }
 
     if (url.pathname === "/sitemap.xml") {
@@ -252,10 +260,161 @@ function renderStockBody({ code, name, latest, rows, isPast }) {
 }
 
 // ─────────────────────────────────────────────
+// テーマページ・カテゴリページ（検索の入口を増やす）
+// 一覧に載せるのは銘柄名・検知日・リンク。理由の文は、その銘柄の「最新の検知」と同じ回のときだけ載せる
+// （過去の検知メモは会員限定のため。銘柄ページと同じ決まり）
+
+// pages.jsx の CATEGORIES / _CATEGORY_TOKENS と揃える
+const CATEGORY_DEFS = {
+  earn:   { label: "好決算",       tokens: ["好決算", "決算"] },
+  upward: { label: "上方修正",     tokens: ["上方修正", "上振れ"] },
+  div:    { label: "増配",         tokens: ["増配", "配当"] },
+  tob:    { label: "TOB・M&A",     tokens: ["TOB", "M&A", "MBO", "公開買付"] },
+  ai:     { label: "AI・半導体",   tokens: ["AI", "半導体", "GPU", "生成AI"] },
+  bio:    { label: "バイオ",       tokens: ["バイオ", "創薬", "治験"] },
+  def:    { label: "防衛",         tokens: ["防衛", "装備"] },
+  fx:     { label: "円安メリット", tokens: ["円安"] },
+  pol:    { label: "政策テーマ",   tokens: ["政策", "規制", "補助金", "原発", "原子力"] },
+  low:    { label: "低位株",       tokens: ["低位"] },
+};
+
+// PostgREST の値として安全に埋め込む（" と \ をエスケープ）
+function pgQuote(s) {
+  return `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+const LIST_SELECT = "stock_code,stock_name,reason,keywords,detected_at";
+
+async function themeRows(theme) {
+  return await supabaseGet(
+    `${SUPABASE_TABLE}?keywords=cs.${encodeURIComponent("{" + pgQuote(theme) + "}")}` +
+    `&select=${LIST_SELECT}&order=detected_at.desc&limit=300`
+  ) || [];
+}
+async function categoryRows(key) {
+  const def = CATEGORY_DEFS[key];
+  if (!def) return [];
+  const conds = [
+    ...def.tokens.map(t => `reason.ilike.${pgQuote("*" + t + "*")}`),
+    `keywords.ov.${"{" + def.tokens.map(pgQuote).join(",") + "}"}`,
+  ];
+  return await supabaseGet(
+    `${SUPABASE_TABLE}?or=${encodeURIComponent("(" + conds.join(",") + ")")}` +
+    `&select=${LIST_SELECT}&order=detected_at.desc&limit=300`
+  ) || [];
+}
+
+// 銘柄ごとに最新の1件へまとめ、その回が銘柄全体でも最新かを調べる
+async function latestPerStock(rows) {
+  const byCode = new Map();
+  for (const r of rows) {
+    const c = String(r.stock_code || "");
+    if (c && !byCode.has(c)) byCode.set(c, r);
+  }
+  const codes = [...byCode.keys()];
+  const overall = new Map();
+  for (let i = 0; i < codes.length; i += 80) {
+    const chunk = codes.slice(i, i + 80);
+    const latest = await supabaseGet(
+      `${SUPABASE_TABLE}?stock_code=in.(${chunk.map(encodeURIComponent).join(",")})` +
+      `&select=stock_code,detected_at&order=detected_at.desc&limit=2000`
+    ) || [];
+    for (const r of latest) {
+      const c = String(r.stock_code);
+      if (!overall.has(c)) overall.set(c, r.detected_at);
+    }
+  }
+  return codes.map(c => {
+    const r = byCode.get(c);
+    return { row: r, isLatest: overall.get(c) === r.detected_at };
+  });
+}
+
+async function listSeoPage({ kind, slug, origin, env }) {
+  const isTheme = kind === "theme";
+  const label = isTheme ? slug : (CATEGORY_DEFS[slug] && CATEGORY_DEFS[slug].label);
+  const rows = label ? (isTheme ? await themeRows(slug) : await categoryRows(slug)) : [];
+  const shell = await env.ASSETS.fetch(new Request(`${origin}/`));
+
+  if (!rows.length) {
+    return new HTMLRewriter()
+      .on("head", { element(el) { el.append('<meta name="robots" content="noindex" />', { html: true }); } })
+      .transform(new Response(shell.body, { status: 404, headers: htmlHeaders() }));
+  }
+
+  const items = await latestPerStock(rows);
+  const path = `/${kind}/${encodeURIComponent(slug)}`;
+  const canonical = `${origin}${path}`;
+  const heading = isTheme ? `「${label}」関連で急騰した銘柄` : `${label}で急騰した銘柄`;
+  const title = `${heading}一覧｜${items.length}銘柄 | ${SITE_NAME}`;
+  const names = items.slice(0, 3).map(it => dispName(it.row.stock_name || it.row.stock_code)).join("、");
+  const desc = clip(
+    `${isTheme ? `「${label}」をテーマに` : `${label}を材料に`}急騰した日本株 ${items.length} 銘柄を、新しい順にまとめています。` +
+    `最近は${names}など。最新の検知日は${jstLabel(rows[0].detected_at)}。`,
+    120,
+  );
+
+  const e = escapeHtml;
+  let html = `<main style="max-width:760px;margin:0 auto;padding:20px 18px 40px;font-family:'BIZ UDPGothic',sans-serif;color:#1D2026;font-size:15px">`;
+  html += `<nav style="font-size:13px;color:#6B707A"><a href="/" style="color:inherit">${e(SITE_NAME)}</a> › ${e(isTheme ? "テーマ" : "急騰理由カテゴリ")} › ${e(label)}</nav>`;
+  html += `<h1 style="margin:14px 0 0;font-size:28px;line-height:1.35">${e(heading)}</h1>`;
+  html += `<p style="margin:8px 0 0;color:#6B707A">検知 ${rows.length} 件、${items.length} 銘柄。最新の検知は ${e(jstLabel(rows[0].detected_at))}</p>`;
+  html += `<ul style="margin:20px 0 0;padding:0;list-style:none">`;
+  for (const it of items) {
+    const r = it.row;
+    const name = dispName(r.stock_name || r.stock_code);
+    html += `<li style="padding:12px 0;border-bottom:1px solid #E4E6E3">` +
+      `<a href="/stock/${e(r.stock_code)}" style="font-weight:700;color:#1D2026">${e(name)}（${e(r.stock_code)}）</a>` +
+      `<span style="margin-left:8px;font-size:13px;color:#6B707A">${e(jstLabel(r.detected_at))}</span>` +
+      (it.isLatest && r.reason ? `<p style="margin:4px 0 0;line-height:1.75">${e(r.reason)}</p>` : "") +
+      `</li>`;
+  }
+  html += `</ul>`;
+  html += `<p style="margin:24px 0 0;font-size:13px;color:#6B707A">理由の文は、各銘柄の最新の検知のものだけを載せています。過去の検知メモは有料会員限定です。</p>`;
+  html += `<p style="margin:24px 0 0;font-size:12px;color:#6B707A;line-height:1.8">本サイトは、公開情報および過去データをもとにした情報整理・分析を目的としており、特定の金融商品の売買を推奨するものではありません。投資判断はご自身の責任で行ってください。</p>`;
+  html += `</main>`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: heading,
+    description: desc,
+    url: canonical,
+    dateModified: rows[0].detected_at,
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: items.length,
+      itemListElement: items.slice(0, 50).map((it, i) => ({
+        "@type": "ListItem", position: i + 1,
+        url: `${origin}/stock/${it.row.stock_code}`,
+        name: dispName(it.row.stock_name || it.row.stock_code),
+      })),
+    },
+  };
+  const setMeta = (sel, value) => [sel, { element(el) { el.setAttribute("content", value); } }];
+  return new HTMLRewriter()
+    .on("title", { element(el) { el.setInnerContent(title); } })
+    .on(...setMeta('meta[name="description"]', desc))
+    .on(...setMeta('meta[property="og:title"]', title))
+    .on(...setMeta('meta[property="og:description"]', desc))
+    .on(...setMeta('meta[property="og:url"]', canonical))
+    .on(...setMeta('meta[name="twitter:title"]', title))
+    .on(...setMeta('meta[name="twitter:description"]', desc))
+    .on("head", {
+      element(el) {
+        el.append(`<link rel="canonical" href="${escapeHtml(canonical)}" />`, { html: true });
+        el.append(`<script type="application/ld+json">${jsonForScript(jsonLd)}</script>`, { html: true });
+      },
+    })
+    .on("#root", { element(el) { el.setInnerContent(html, { html: true }); } })
+    .transform(new Response(shell.body, { status: 200, headers: htmlHeaders() }));
+}
+
+// ─────────────────────────────────────────────
 // サイトマップ：主要ページ + 検知のある銘柄ページ（最新の検知日を lastmod に）
 async function sitemap(origin) {
   const rows = await supabaseGet(
-    `${SUPABASE_TABLE}?select=stock_code,detected_at&order=detected_at.desc&limit=5000`, 3600
+    `${SUPABASE_TABLE}?select=stock_code,keywords,detected_at&order=detected_at.desc&limit=5000`, 3600
   ) || [];
   const seen = new Map();
   for (const r of rows) {
@@ -263,6 +422,17 @@ async function sitemap(origin) {
     if (c && !seen.has(c)) seen.set(c, r.detected_at);
   }
   const latestAll = rows[0] ? rows[0].detected_at : null;
+  // テーマは検知が2件以上あるものだけ（1件だけの薄いページは載せない）
+  const themes = new Map();
+  for (const r of rows) {
+    for (const k of (Array.isArray(r.keywords) ? r.keywords : [])) {
+      const t = String(k || "").trim();
+      if (!t || t.includes("/")) continue;
+      const cur = themes.get(t) || { n: 0, last: r.detected_at };
+      cur.n++;
+      themes.set(t, cur);
+    }
+  }
   const urls = [
     { loc: `${origin}/`, lastmod: latestAll, freq: "hourly", pri: "1.0" },
     { loc: `${origin}/archive`, lastmod: latestAll, freq: "daily", pri: "0.6" },
@@ -271,6 +441,9 @@ async function sitemap(origin) {
     { loc: `${origin}/legal`, freq: "yearly", pri: "0.1" },
     { loc: `${origin}/privacy`, freq: "yearly", pri: "0.1" },
     ...[...seen.entries()].map(([c, t]) => ({ loc: `${origin}/stock/${c}`, lastmod: t, freq: "daily", pri: "0.8" })),
+    ...Object.keys(CATEGORY_DEFS).map(k => ({ loc: `${origin}/category/${k}`, lastmod: latestAll, freq: "daily", pri: "0.6" })),
+    ...[...themes.entries()].filter(([, v]) => v.n >= 2)
+      .map(([t, v]) => ({ loc: `${origin}/theme/${encodeURIComponent(t)}`, lastmod: v.last, freq: "daily", pri: "0.6" })),
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
     urls.map(u => `  <url><loc>${escapeHtml(u.loc)}</loc>` +

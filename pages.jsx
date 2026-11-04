@@ -1283,6 +1283,9 @@ function StockDetailPage({ stock, navigate, goBack }) {
         )}
       </div>
 
+      {/* 広告枠（PR）— 理由を読み終えたところに置く。ads-config.js でON/OFF */}
+      {window.ScouterPromoCard && <window.ScouterPromoCard navigate={navigate} stock={stock}/>}
+
       {histEntries.length >= 2 && (
         <>
           <SectionHeader kicker="同一銘柄の検知履歴" title={`${histCurIdx + 1}回目の登場`}/>
@@ -1356,8 +1359,6 @@ function StockDetailPage({ stock, navigate, goBack }) {
         />
       )}
 
-      {/* 広告枠（PR）— ads-config.js でON/OFF */}
-      {window.ScouterPromoCard && <window.ScouterPromoCard navigate={navigate}/>}
 
       {/* 関連銘柄（分析フローが抽出した連想銘柄） */}
       {relatedStocks.length > 0 && (

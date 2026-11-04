@@ -38,6 +38,50 @@ function _openScouter(navigate, slot) {
   navigate("scouter");
 }
 
+// 「業績10期の推移」のイメージ図。銘柄スカウターの画面写真は著作権・提携規約の都合で使えないため、
+// 自前で描いた抽象的な図に「イメージ」と明記して使う（実在の銘柄の数値ではない）
+const _FIG_SALES  = [42, 48, 45, 55, 61, 58, 70, 78, 86, 97];
+const _FIG_PROFIT = [6, 8, 5, 10, 12, 9, 15, 18, 22, 27];
+function EarningsFigure({ height = 132 }) {
+  const W = 320, H = 132, padL = 6, padR = 6, padT = 26, padB = 20;
+  const n = _FIG_SALES.length;
+  const slot = (W - padL - padR) / n;
+  const bw = slot * 0.56;
+  const ph = H - padT - padB;
+  const sy = v => padT + ph * (1 - v / 100);
+  const py = v => padT + ph * (1 - v / 34) * 0.62;
+  const cx = i => padL + slot * i + slot / 2;
+  return (
+    <figure style={{ margin: 0 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="業績10期の推移のイメージ。売上高と営業利益が右肩上がりに伸びている図"
+        style={{ display: "block", width: "100%", height, background: "var(--bg)" }}>
+        <g fontSize="11" fill="var(--ink-soft)" fontFamily="var(--f-body)">
+          <rect x={padL + 2} y="8" width="9" height="9" fill="var(--hairline-strong)"/>
+          <text x={padL + 15} y="16">売上高</text>
+          <line x1={padL + 62} x2={padL + 76} y1="12.5" y2="12.5" stroke="var(--ink)" strokeWidth="2"/>
+          <text x={padL + 80} y="16">営業利益</text>
+        </g>
+        <line x1={padL} x2={W - padR} y1={H - padB} y2={H - padB} stroke="var(--ink)" strokeWidth="1"/>
+        {_FIG_SALES.map((v, i) => (
+          <rect key={i} x={cx(i) - bw / 2} y={sy(v)} width={bw} height={H - padB - sy(v)}
+            fill={i === n - 1 ? "var(--ink-soft)" : "var(--hairline-strong)"}/>
+        ))}
+        <polyline points={_FIG_PROFIT.map((v, i) => `${cx(i)},${py(v)}`).join(" ")}
+          fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinejoin="round"/>
+        {_FIG_PROFIT.map((v, i) => (
+          <circle key={i} cx={cx(i)} cy={py(v)} r={i === n - 1 ? 4.5 : 2.4}
+            fill={i === n - 1 ? "var(--marker)" : "var(--ink)"} stroke="var(--ink)" strokeWidth={i === n - 1 ? 1.5 : 0}/>
+        ))}
+        <g fontSize="10" fill="var(--muted)" fontFamily="var(--f-num)">
+          <text x={cx(0)} y={H - 6} textAnchor="middle">10期前</text>
+          <text x={cx(n - 1)} y={H - 6} textAnchor="middle">直近</text>
+        </g>
+      </svg>
+      <figcaption style={{ marginTop: 4, fontSize: 11, color: "var(--muted)", lineHeight: 1.6 }}>銘柄スカウターで見られる業績グラフのイメージです。この銘柄の実際の数値ではありません</figcaption>
+    </figure>
+  );
+}
+
 // ── 枠①：銘柄詳細ページ（「なぜ上がったのか」の直下） ──
 // 理由を読み終えて「この会社の中身は？」と思ったところで紹介ページへ誘導する本命枠
 function ScouterPromoCard({ navigate, stock }) {
@@ -63,13 +107,14 @@ function ScouterPromoCard({ navigate, stock }) {
           <PRTag/>
           <span>マネックス証券</span>
         </div>
-        {_adsCfg().monex.cardImage && (
-          <img src={_adsCfg().monex.cardImage} alt="銘柄スカウター" style={{
-            display: "block", width: "100%", height: "auto",
-            border: "1px solid var(--hairline)", marginTop: 10,
-          }}/>
-        )}
-        <div style={{ marginTop: 8, fontFamily: "var(--f-head)", fontSize: 19, fontWeight: 900, lineHeight: 1.45 }}>
+        <div className="ad-card-body">
+        <div className="ad-card-fig">
+          {_adsCfg().monex.cardImage
+            ? <img src={_adsCfg().monex.cardImage} alt="銘柄スカウター" style={{ display: "block", width: "100%", height: "auto", border: "1px solid var(--hairline)" }}/>
+            : <EarningsFigure/>}
+        </div>
+        <div className="ad-card-text">
+        <div style={{ fontFamily: "var(--f-head)", fontSize: 19, fontWeight: 900, lineHeight: 1.45 }}>
           {name ? `${name}の業績、中身はどうか` : "この銘柄、業績の中身はどうか"}
         </div>
         <p style={{ margin: "8px 0 0", fontSize: 13.5, lineHeight: 1.85, color: "var(--ink-soft)", maxWidth: "36em" }}>
@@ -78,6 +123,8 @@ function ScouterPromoCard({ navigate, stock }) {
         </p>
         <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 4 }}>
           銘柄スカウターでできることを見る
+        </div>
+        </div>
         </div>
       </div>
     </aside>
@@ -209,6 +256,10 @@ function ScouterPage({ navigate, goBack }) {
         </p>
       </div>
 
+      <div style={{ padding: "18px 18px 0", maxWidth: 520 }}>
+        <EarningsFigure height={150}/>
+      </div>
+
       {/* 役割分担の対比表 */}
       <SectionHeader kicker="役割分担" title="急騰要因メモ × 銘柄スカウター"/>
       <div style={{ margin: "0 18px", borderTop: "1px solid var(--ink)", background: "var(--surface)" }}>
@@ -307,4 +358,4 @@ function ScouterPage({ navigate, goBack }) {
   );
 }
 
-Object.assign(window, { PRTag, ScouterPromoCard, HomeScouterAd, FooterAdStrip, ScouterPage });
+Object.assign(window, { PRTag, EarningsFigure, ScouterPromoCard, HomeScouterAd, FooterAdStrip, ScouterPage });

@@ -272,6 +272,12 @@
   .fp-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 18px 0; }
   .fp-actions .btn { flex: 1 1 220px; }
 
+  /* 広告枠：イメージ図と文章（スマホは縦並び、広い画面では横並び） */
+  .ad-card-body { display: grid; gap: 12px; margin-top: 12px; }
+  @media (min-width: 640px) {
+    .ad-card-body { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 22px; align-items: center; }
+  }
+
   /* カテゴリ一覧の1件 */
   .cat-row {
     display: flex; flex-direction: column; justify-content: flex-start;
@@ -447,20 +453,20 @@
   <script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 
   <script>window.PUBLIC_BUILD = true;</script>
-  <script src="/site-config.js?v=20261104h"></script>
-  <script src="/ads-config.js?v=20261104h"></script>
-  <script type="text/babel" src="/ios-frame.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/tweaks-panel.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/data.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/live-data.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/watchlist.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/dip-signal.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/ui.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/real-chart.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/ads.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/auth.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/weekly-report.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/pages.jsx?v=20261104h"></script>
-  <script type="text/babel" src="/app.jsx?v=20261104h"></script>
+  <script src="/site-config.js?v=20261104i"></script>
+  <script src="/ads-config.js?v=20261104i"></script>
+  <script type="text/babel" src="/ios-frame.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/tweaks-panel.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/data.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/live-data.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/watchlist.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/dip-signal.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/ui.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/real-chart.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/ads.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/auth.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/weekly-report.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/pages.jsx?v=20261104i"></script>
+  <script type="text/babel" src="/app.jsx?v=20261104i"></script>
 </body>
 </html>

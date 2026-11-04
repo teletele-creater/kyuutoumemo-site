@@ -930,7 +930,7 @@ function Footer({ navigate }) {
         {links.map(l => (
           <li key={l.label}>
             <a
-              href={l.page ? "#" + l.page : "#"}
+              href={l.page ? "/" + l.page : "#"}
               onClick={e => { e.preventDefault(); if (l.page && navigate) navigate(l.page); }}
               style={{ color: "inherit", textDecoration: l.page ? "underline" : "none", textUnderlineOffset: 3, cursor: l.page ? "pointer" : "default" }}
             >{l.label}</a>

@@ -31,14 +31,35 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 // タブのルートページ — これらに遷移したら履歴をリセットする
 const TAB_ROOTS = ["home", "cats", "archive", "watch", "report", "plan"];
 
-// URLハッシュで直接開けるページ（例: /#legal → 特商法表記）。Stripe審査等でURL提出に使う。
+// URLで直接開けるページ（例: /legal → 特商法表記）。Stripe審査等でURL提出に使う。
+// _worker.js の SPA_PATH と揃えること（静的ファイルが無いパスに index.html を返す）
 const HASH_PAGES = ["home", "cats", "archive", "watch", "report", "plan", "legal", "privacy", "scouter"];
 
-// ページに対応するURL（ハッシュ）を返す。銘柄詳細は /#stock/1234 で直リンク可能
-function _hashFor(page, data) {
-  if (page === "stock" && data && data.code) return "#stock/" + data.code;
-  if (HASH_PAGES.includes(page) && page !== "home") return "#" + page;
-  return window.location.pathname + window.location.search;
+// JST の YYYYMMDD
+function _jstYmd(iso) {
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" })
+      .format(new Date(iso)).replace(/-/g, "");
+  } catch (e) { return ""; }
+}
+
+// URL から最初に開くページを読む。
+// 新形式：/stock/1234、/stock/1234/20261103、/archive
+// 旧形式：/#stock/1234、/#legal（Xの過去ポストや外部のリンク用に引き続き受け付ける）
+function _routeFromUrl() {
+  const path = window.location.pathname.replace(/\/index\.html$/, "/");
+  const hash = (window.location.hash || "").replace(/^#\/?/, "");
+  const m = path.match(/^\/stock\/([0-9A-Za-z]+)(?:\/(\d{8}))?\/?$/) || hash.match(/^stock\/([0-9A-Za-z]+)(?:\/(\d{8}))?/);
+  if (m) return { page: "home", stock: { code: m[1], ymd: m[2] || null } };
+  const seg = path.replace(/^\/|\/$/g, "") || hash;
+  return { page: HASH_PAGES.includes(seg) ? seg : "home", stock: null };
+}
+
+// ページに対応するURLを返す。銘柄詳細は /stock/1234（その銘柄の最新の検知）
+function _urlFor(page, data) {
+  if (page === "stock" && data && data.code) return "/stock/" + data.code;
+  if (HASH_PAGES.includes(page) && page !== "home") return "/" + page;
+  return "/";
 }
 
 // アーカイブ検索欄にフォーカス（描画待ちのため見つかるまで少しリトライ）
@@ -55,10 +76,8 @@ function _focusArchiveSearch() {
 
 function App() {
   // ページ遷移履歴のスタック。最後の要素が現在のページ。
-  const [history, setHistory] = useState(() => {
-    const h = (window.location.hash || "").replace(/^#\/?/, "");
-    return [{ page: HASH_PAGES.includes(h) ? h : "home", data: null }];
-  });
+  const [route0] = useState(_routeFromUrl);
+  const [history, setHistory] = useState(() => [{ page: route0.page, data: null }]);
   const current = history[history.length - 1];
   const page = current.page;
   const pageData = current.data;
@@ -66,28 +85,31 @@ function App() {
   const [t, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
   const live = window.useLiveData ? window.useLiveData() : { status: "fallback" };
 
-  // ディープリンク: /#stock/1234 → 該当銘柄の詳細ページを直接開く（Xポスト等からの流入用）
-  const [pendingStockCode, setPendingStockCode] = useState(() => {
-    const m = (window.location.hash || "").match(/^#\/?stock\/([0-9A-Za-z]+)/);
-    return m ? m[1] : null;
-  });
+  // ディープリンク: /stock/1234 → 該当銘柄の詳細ページを直接開く（Xポスト・検索からの流入用）。
+  // 開くのはその銘柄の最新の検知。日付付きURL（/stock/1234/20261103）は、過去の検知メモが
+  // 有料会員限定なので、最新の日を指しているときだけその日として扱い、それ以外も最新を開く
+  const [pendingStock, setPendingStock] = useState(route0.stock);
+  const stockFetchRef = React.useRef(false);
   useEffect(() => {
-    if (!pendingStockCode) return;
+    if (!pendingStock) return;
+    const code = String(pendingStock.code);
     const stocks = live.stocks || [];
-    const hit = stocks.find(s => String(s.code) === String(pendingStockCode));
+    const hit = stocks.find(s => String(s.code) === code);
+    const open = s => setHistory([{ page: "home", data: null }, { page: "stock", data: s }]);
     if (hit) {
-      setPendingStockCode(null);
-      setHistory([{ page: "home", data: null }, { page: "stock", data: hit }]);
+      setPendingStock(null);
+      open(hit);
       return;
     }
-    // 読み込み済みリストに無い（表示期間より古い等）→ Supabase から直接1件取得
-    if (live.status !== "connecting" && window.fetchStockByCode) {
-      setPendingStockCode(null);
-      window.fetchStockByCode(pendingStockCode).then(s => {
-        if (s) setHistory([{ page: "home", data: null }, { page: "stock", data: s }]);
-      });
+    // 読み込み済みリストに無い（表示期間より古い等）→ Supabase から直接1件取得。
+    // 取得し終えるまで pendingStock を残し、途中のホームを page_view として数えない
+    if (live.status !== "connecting" && window.fetchStockByCode && !stockFetchRef.current) {
+      stockFetchRef.current = true;
+      window.fetchStockByCode(code)
+        .then(s => { if (s) open(s); })
+        .finally(() => setPendingStock(null));
     }
-  }, [pendingStockCode, live.status, live.stocks]);
+  }, [pendingStock, live.status, live.stocks]);
 
   // Apply tweak: accent color
   useEffect(() => {
@@ -131,9 +153,9 @@ function App() {
       if (top && top.page === p && top.data === (data || null)) return h;
       return [...h, { page: p, data: data || null }];
     });
-    // 直リンク可能なページはURLハッシュを同期（履歴は汚さない）
+    // 直リンク可能なページはURLを同期（履歴は汚さない）
     try {
-      window.history.replaceState(null, "", _hashFor(p, data));
+      (window.__replaceUrl || window.history.replaceState.bind(window.history))(null, "", _urlFor(p, data));
     } catch (e) {}
     _scrollTop();
   };
@@ -144,7 +166,7 @@ function App() {
       const nh = h.length > 1 ? h.slice(0, -1) : [{ page: "home", data: null }];
       const top = nh[nh.length - 1];
       try {
-        window.history.replaceState(null, "", _hashFor(top.page, top.data));
+        (window.__replaceUrl || window.history.replaceState.bind(window.history))(null, "", _urlFor(top.page, top.data));
       } catch (e) {}
       return nh;
     });
@@ -159,16 +181,18 @@ function App() {
     : ["plan"].includes(page) ? "plan"
     : null;
 
-  // ページ切替ごとにタイトルを更新し、Google アナリティクスへ page_view を送る。
-  // URL はハッシュ（#stock/6262）なので、GA には /stock/6262 のような仮想パスで渡す
+  // ページ切替ごとにタイトルとURLを揃え、Google アナリティクスへ page_view を送る。
+  // URL を持たない画面（テーマ・カテゴリ詳細など）は /theme/… のような仮想パスで GA に渡す
   useEffect(() => {
+    // 銘柄への直リンクを開いている途中（いったんホームが描かれる）は数えない
+    if (pendingStock) return;
     const SITE = "株価急騰要因メモ";
     const d = pageData || {};
     const name = d.name && window._dispName ? window._dispName(d.name) : d.name;
     const info = {
       home:     { path: "/",                                   title: SITE },
       surges:   { path: "/surges",                             title: "今日の急騰銘柄" },
-      stock:    { path: "/stock/" + (d.code || ""),            title: `${name || "銘柄詳細"}（${d.code || ""}）の急騰理由` },
+      stock:    { path: "/stock/" + (d.code || ""),            title: `${name || "銘柄詳細"}（${d.code || ""}）が急騰した理由` },
       cats:     { path: "/cats",                               title: "急騰理由カテゴリ" },
       category: { path: "/category/" + (d.key || ""),          title: `${d.label || "カテゴリ"}で急騰した銘柄` },
       theme:    { path: "/theme/" + encodeURIComponent(typeof pageData === "string" ? pageData : ""), title: `テーマ「${typeof pageData === "string" ? pageData : ""}」で動いた銘柄` },
@@ -183,6 +207,11 @@ function App() {
     }[page] || { path: "/", title: SITE };
     const title = page === "home" ? SITE : `${info.title} | ${SITE}`;
     document.title = title;
+    // /stock/1234/日付 や /#legal で開かれたときも、正規のURL（/stock/1234、/legal）に揃える
+    const want = _urlFor(page, pageData);
+    if (want !== "/" && window.location.pathname + window.location.hash !== want) {
+      try { (window.__replaceUrl || window.history.replaceState.bind(window.history))(null, "", want); } catch (e) {}
+    }
     if (typeof window.gtag === "function") {
       window.gtag("event", "page_view", {
         page_title: title,
@@ -190,7 +219,7 @@ function App() {
         page_path: info.path,
       });
     }
-  }, [page, pageData]);
+  }, [page, pageData, pendingStock]);
 
   let body = null;
   switch (page) {
@@ -273,12 +302,12 @@ function App() {
                 <div className="dk-foot" style={{ padding: "18px 40px 28px", borderTop: "1px solid var(--hairline)" }}>
                   本サイトの情報は特定銘柄の売買を推奨するものではありません。投資判断はご自身の責任で行ってください。
                   <a
-                    href="#legal"
+                    href="/legal"
                     onClick={e => { e.preventDefault(); navigate("legal"); }}
                     style={{ marginLeft: 12, color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
                   >特定商取引法に基づく表記</a>
                   <a
-                    href="#privacy"
+                    href="/privacy"
                     onClick={e => { e.preventDefault(); navigate("privacy"); }}
                     style={{ marginLeft: 12, color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
                   >プライバシーポリシー</a>

@@ -3090,7 +3090,7 @@ function _fmtPrice(v) {
   return n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString("ja-JP");
 }
 
-function ArchiveRow({ item, onOpen, onTheme, showDate = false }) {
+function ArchiveRow({ item, onOpen, onTheme, showDate = false, locked = false }) {
   const time = item.time || (item.detected_at || "").slice(11, 16) || "—:—";
   const themes = (item.themes || []).slice(0, 3);
   let dateLbl = null;
@@ -3159,6 +3159,12 @@ function ArchiveRow({ item, onOpen, onTheme, showDate = false }) {
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             minWidth: 0,
           }}>{item.name}</span>
+          {locked && (
+            <span style={{
+              fontSize: 9.5, color: "var(--gold)", border: "1px solid var(--gold)",
+              padding: "0 5px", letterSpacing: "0.1em", whiteSpace: "nowrap", flexShrink: 0,
+            }}>会員限定</span>
+          )}
           <span style={{
             marginLeft: "auto", color: "var(--muted-2)",
             fontSize: 14, lineHeight: 1, flexShrink: 0,
@@ -3169,7 +3175,7 @@ function ArchiveRow({ item, onOpen, onTheme, showDate = false }) {
           borderLeft: "2px solid var(--navy)", paddingLeft: 8,
           marginBottom: 6,
         }}>
-          {item.reason || "—"}
+          {locked ? "過去の検知メモは有料会員限定です。押すと会員プランを開きます" : (item.reason || "—")}
         </div>
 
         {/* 株価セル: 急騰時 / 現在 / 変化率 */}
@@ -3247,6 +3253,9 @@ function ArchiveRow({ item, onOpen, onTheme, showDate = false }) {
 function ThemePage({ theme, navigate, goBack }) {
   const th = window.useThemeEntries ? window.useThemeEntries(theme) : { entries: [], loading: false };
   const entries = th.entries || [];
+  // 過去の検知メモは有料会員限定（銘柄詳細の検知履歴と同じ決まり。各銘柄の最新の回だけ無料）
+  const auth = window.useAuth ? window.useAuth() : { enabled: false, paid: true };
+  const gated = !!(auth.enabled && !auth.paid);
   const codes = new Set(entries.map(e => String(e.code)));
   const dates = entries.map(e => e.detected_at).filter(Boolean).sort();
   const fmtDate = d => {
@@ -3281,15 +3290,19 @@ function ThemePage({ theme, navigate, goBack }) {
             このテーマの検知はまだありません。
           </div>
         )}
-        {entries.map((e, i) => (
-          <ArchiveRow
-            key={e.id || i}
-            item={e}
-            showDate={true}
-            onOpen={() => navigate("stock", e)}
-            onTheme={t => { if (t !== theme) navigate("theme", t); }}
-          />
-        ))}
+        {entries.map((e, i) => {
+          const locked = gated && !e.isLatest;
+          return (
+            <ArchiveRow
+              key={e.id || i}
+              item={e}
+              showDate={true}
+              locked={locked}
+              onOpen={() => locked ? navigate("plan") : navigate("stock", e)}
+              onTheme={t => { if (t !== theme) navigate("theme", t); }}
+            />
+          );
+        })}
       </div>
     </div>
   );

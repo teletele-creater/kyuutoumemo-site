@@ -513,7 +513,14 @@ function useThemeEntries(theme) {
         if ((e.themes || []).map(_norm).includes(t)) pool.push(e);
       });
       pool.sort((a, b) => new Date(b.detected_at || Date.now()) - new Date(a.detected_at || Date.now()));
-      setState({ entries: pool, loading: false, error: null, status: "fallback" });
+      const firstSeen = new Set();
+      const marked = pool.map(e => {
+        const c = String(e.code);
+        const isLatest = !firstSeen.has(c);
+        firstSeen.add(c);
+        return { ...e, isLatest };
+      });
+      setState({ entries: marked, loading: false, error: null, status: "fallback" });
       return;
     }
 
@@ -542,8 +549,26 @@ function useThemeEntries(theme) {
         }
         rows = (alt.data || []).filter(r => ((r.keywords || [])).map(_norm).includes(t));
       }
+      // 各銘柄の「全体で最新の検知」を調べる（過去の回は会員限定にするため。テーマ外の新しい検知も考慮）
+      const codes = [...new Set((rows || []).map(r => String(r.stock_code)))];
+      const latestAt = new Map();
+      for (let i = 0; i < codes.length; i += 80) {
+        const r2 = await sbRef.current.from(table).select("stock_code,detected_at")
+          .in("stock_code", codes.slice(i, i + 80))
+          .order("detected_at", { ascending: false })
+          .limit(2000);
+        if (cancelled) return;
+        (r2.data || []).forEach(r => {
+          const c = String(r.stock_code);
+          if (!latestAt.has(c)) latestAt.set(c, r.detected_at);
+        });
+      }
       setState({
-        entries: (rows || []).map(_mapRow).map(s => _applyPrice(s, priceMap)),
+        entries: (rows || []).map(r => ({
+          ..._applyPrice(_mapRow(r), priceMap),
+          // 取得に失敗した銘柄は安全側（過去扱い）に倒す
+          isLatest: latestAt.get(String(r.stock_code)) === r.detected_at,
+        })),
         loading: false, error: null, status: "live",
       });
     })();

@@ -1,0 +1,10 @@
+{
+  "name": "kyuutoumemo-site",
+  "private": true,
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "@babel/standalone": "7.29.0"
+  }
+}

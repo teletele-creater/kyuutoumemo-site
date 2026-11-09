@@ -33,7 +33,7 @@ flowchart LR
 
 | 項目 | 内容 |
 |---|---|
-| 画面 | React 18。ビルドを置かず、ブラウザ上の Babel で JSX を読み込む構成 |
+| 画面 | React 18。手元ではブラウザ上の Babel で JSX をそのまま動かし、公開版は `build.js` で前もって変換する（Babel と React 開発用ビルドの読み込みをなくし、スマホでの表示を数倍速くした） |
 | データ | Supabase（REST・Realtime・Auth） |
 | チャート | Canvas と SVG を自前で描画。日足は Supabase の `stock_ohlc`、無ければ公開 API から取得し、ブラウザに15分キャッシュ |
 | 配信 | Cloudflare Pages。`_worker.js` で OGP とカード画像だけを処理し、ほかは静的配信 |
@@ -58,11 +58,19 @@ flowchart LR
 
 ## 手元で動かす
 
-ビルドは不要です。静的ファイルを配信できれば動きます。
+手元で見るだけならビルドは不要です。静的ファイルを配信できれば動きます。
 
 ```sh
 python -m http.server 8080
 # http://127.0.0.1:8080/ を開く
+```
+
+公開用のファイルは `dist/` に作ります。JSX を `@babel/standalone` の `<script type="text/babel">` と同じ設定で変換するので、手元と同じ動きになります。
+
+```sh
+npm install
+npm run build
+npx wrangler pages deploy dist --project-name kyuutoumemo --branch main
 ```
 
 ## 公開しているキーについて

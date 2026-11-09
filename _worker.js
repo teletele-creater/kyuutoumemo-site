@@ -230,13 +230,20 @@ function jsonForScript(o) {
 }
 
 // related_stocks の「(3641: パピレス — 説明文)」形式を読む（pages.jsx の _parseRelatedStocks と同じ規則）
+// AI が書き直しの途中経過（「（除外）」「正しくは下記へ差し替え」など）を残すことがあるので、その行と同じ銘柄の重複は出さない
+const RELATED_JUNK = /除外|削除|差し替え|誤記載|比較対象外|該当なし/;
+
 function parseRelated(text) {
+  const seen = new Set();
   return String(text || "").split(/\n+/).map(line => {
     const s = line.trim().replace(/^\(/, "").replace(/\)$/, "");
     const m = s.match(/^([0-9]{3,4}[A-Za-z]?)\s*[:：]\s*(.+)$/);
     if (!m) return null;
     const parts = m[2].split(/\s*[—–―]\s*/);
-    return { code: m[1], name: (parts[0] || "").trim(), desc: parts.slice(1).join(" — ").trim() };
+    const item = { code: m[1], name: (parts[0] || "").trim(), desc: parts.slice(1).join(" — ").trim() };
+    if (seen.has(item.code) || RELATED_JUNK.test(item.name + item.desc)) return null;
+    seen.add(item.code);
+    return item;
   }).filter(Boolean);
 }
 

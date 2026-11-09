@@ -33,12 +33,28 @@ const X_CRAWLER_UA = /Twitterbot/i;
 // 画像取得に失敗したときのフォールバック（必ず存在する静的画像）
 const FALLBACK_IMAGE = "/og-image.png?v=2";
 
+const CANONICAL_ORIGIN = "https://kyuutoumemo.com";
+const PAGES_DEV_HOST = "kyuutoumemo.pages.dev";
+
+// トップと SPA の画面に canonical を付ける（HTML のときだけ）
+function withCanonical(res, href) {
+  if (!(res.headers.get("content-type") || "").includes("text/html")) return res;
+  return new HTMLRewriter()
+    .on("head", { element(el) { el.append(`<link rel="canonical" href="${escapeHtml(href)}" />`, { html: true }); } })
+    .transform(res);
+}
+
 // SPA の画面（対応する静的ファイルが無い）。app.jsx の HASH_PAGES と揃える
 const SPA_PATH = /^\/(cats|archive|watch|report|plan|legal|privacy|scouter|surges)\/?$/;
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // Pages の既定ドメインは独自ドメインへ寄せる（同じ中身が2つのドメインにあると、検索で重複扱いになる）
+    if (url.hostname === PAGES_DEV_HOST) {
+      return Response.redirect(`${CANONICAL_ORIGIN}${url.pathname}${url.search}`, 301);
+    }
 
     const card = url.pathname.match(/^\/card\/([0-9A-Za-z]{2,10})\.png$/);
     if (card) {
@@ -65,7 +81,12 @@ export default {
 
     if (SPA_PATH.test(url.pathname)) {
       // /index.html は Pages が / へ 308 転送するので、/ を直接読む
-      return env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+      const res = await env.ASSETS.fetch(new Request(`${url.origin}/`, { headers: request.headers }));
+      return withCanonical(res, `${url.origin}${url.pathname.replace(/\/$/, "")}`);
+    }
+
+    if (url.pathname === "/") {
+      return withCanonical(await env.ASSETS.fetch(request), `${url.origin}/`);
     }
 
     return env.ASSETS.fetch(request);
